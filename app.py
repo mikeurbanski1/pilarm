@@ -3,9 +3,17 @@ import sys
 import threading
 import time
 import datetime
-from twilio.rest import Client
+from slack import WebClient
 # import RPi.GPIO
 
+with open('.slack_token', 'r') as file:
+    slack_token = file.readline().rstrip()
+
+channel_id = 'C018H9JPE1G'
+
+client = WebClient(token=slack_token)
+
+# resp = client.conversations_list(types='private_channel')
 
 stop = False
 switch_state = False
@@ -14,18 +22,10 @@ alarm_trigger_time = 3
 alarm_over_time = 8
 
 
-phone_number = '+17205130549'
-account_sid = 'AC26b29f539656f407c7da50749db8f073'
-auth_token = 'e3844d526b2ea49213a5c215cc75fbbd'
-client = Client(account_sid, auth_token)
-
-
-def send_text():
+def send_message():
     t = datetime.datetime.now()
-    message = client.messages.create(body=f'Alarm triggered at {t}',
-                                     from_=phone_number,
-                                     to='+16125999957')
-    print(f'Sent message: {message.sid}')
+    resp = client.chat_postMessage(channel=channel_id, text=f'Alarm triggered at {t}')
+    print(f'Sent message: {resp}')
 
 
 def loop_thread():
@@ -42,10 +42,11 @@ def loop_thread():
             t = time.time()
             if t > last_switch_time + alarm_trigger_time and not alarm_triggered:
                 print(f'Switch was open for {alarm_trigger_time} seconds - alarm triggered')
+                threading.Thread(target=send_message).start()
                 alarm_triggered = True
             if t > last_switch_time + alarm_over_time and not alarm_overtime:
                 print(f'Switch was open for {alarm_over_time} seconds - second alarm triggered')
-                threading.Thread(target=send_text()).start()
+                # threading.Thread(target=send_message).start()
                 alarm_overtime = True
         elif not switch_state and last_switch_state:
             t = time.time()
