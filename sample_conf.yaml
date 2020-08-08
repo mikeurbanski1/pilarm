@@ -1,0 +1,19 @@
+# Required attributes
+slack_api_token: xoxb-1234
+slack_channel: some_channel
+
+
+# Optional overrides (values shown with their default values for reference)
+
+# See https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior for timestamp formatting syntax
+# timestamp_format: "%I:%M:%S %p on %Y/%m/%d",
+
+# Time is in seconds for both these values.
+# door_opened_delay: 3,
+# door_open_overtime_delay: 8,
+
+# Both these messages accept a placeholder named $TIMESTAMP, which will be replaced by the formatted timestamp.
+# door_overtime_message accepts a $DURATION placeholder, which will be replaced with the value for how long the door has been open.
+
+# door_open_message: Door opened at $TIMESTAMP,
+# door_overtime_message: Door has been opened for $DURATION seconds as of $TIMESTAMP
