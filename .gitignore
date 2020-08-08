@@ -1,3 +1,4 @@
 .idea
 venv
 .slack_token
+secrets.yaml
