@@ -125,6 +125,7 @@ def switch_monitor_thread():
         val = GPIO.input(switch_pin)
         LOGGER.info(f'Pin value: {val}')
         time.sleep(1)
+    LOGGER.info('Switch input thread shutting down')
 
 
 def input_thread():
@@ -135,7 +136,7 @@ def input_thread():
         if s == 'exit':
             break
         switch_state = not switch_state
-    LOGGER.info('Input thread shutting down')
+    LOGGER.info('Keyboard input thread shutting down')
 
 
 def handle_signal(sig=None, frame=None):
@@ -246,10 +247,9 @@ def configure():
 
     LOGGER.info(f'Got config: {task_config}')
     validate_config()
+    slack_client = WebClient(token=task_config['slack_api_token'])
     task_config['slack_channel_id'] = get_channel_id(task_config['slack_channel'])
     LOGGER.info(f'Validated config: {task_config}')
-
-    slack_client = WebClient(token=task_config['slack_api_token'])
 
 
 def execute():
