@@ -288,6 +288,13 @@ def setup_gpio():
     LOGGER.info('Finished setting up GPIO')
 
 
+def send_startup_message():
+    time_str = datetime.datetime.now().strftime(task_config['timestamp_format'])
+    message = f'Pilarm started at {time_str}'
+    resp = slack_client.chat_postMessage(channel=task_config['slack_channel_id'], text=message)
+    LOGGER.info(f'Sent message: {resp}')
+
+
 def execute():
     global gpio_enabled
 
@@ -318,6 +325,8 @@ def execute():
 
         for t in main_threads:
             t.start()
+
+        send_startup_message()
 
     except Exception as e:
         LOGGER.exception('Error during initialization', exc_info=True)
