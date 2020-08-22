@@ -28,7 +28,6 @@ LOGGER.addHandler(console_handler)
 
 try:
     import RPi.GPIO as GPIO
-
     LOGGER.info('Imported RPi package')
     DEV_ENV = False
 except ModuleNotFoundError:
@@ -58,16 +57,18 @@ DEFAULT_CONFIG = {
 CONFIG_FILENAME = 'conf.yaml'
 
 main_threads: List[threading.Thread] = []
+task_config: dict
+slack_client: WebClient
 
 
-def send_door_open_message(task_config: dict, slack_client: WebClient):
+def send_door_open_message():
     time_str = datetime.datetime.now().strftime(task_config['timestamp_format'])
     message = task_config['door_open_message'].replace('$TIMESTAMP', time_str)
     resp = slack_client.chat_postMessage(channel=task_config['slack_channel_id'], text=message)
     LOGGER.info(f'Sent message: {resp}')
 
 
-def send_overtime_message(task_config: dict, slack_client: WebClient):
+def send_overtime_message():
     time_str = datetime.datetime.now().strftime(task_config['timestamp_format'])
     message = task_config['door_overtime_message'].replace('$TIMESTAMP', time_str).replace('$DURATION', str(
         task_config['door_open_overtime_delay']))
@@ -75,7 +76,7 @@ def send_overtime_message(task_config: dict, slack_client: WebClient):
     LOGGER.info(f'Sent message: {resp}')
 
 
-def loop_thread(task_config: dict, slack_client: WebClient):
+def loop_thread():
     LOGGER.debug('Entered main loop thread')
     last_switch_time = 0
     last_switch_state = switch_state
@@ -93,11 +94,11 @@ def loop_thread(task_config: dict, slack_client: WebClient):
             t = time.time()
             if t > last_switch_time + door_opened_delay and not alarm_triggered:
                 LOGGER.info(f'Switch was open for {door_opened_delay} seconds - alarm triggered')
-                threading.Thread(target=send_door_open_message, args=(task_config, slack_client)).start()
+                threading.Thread(target=send_door_open_message).start()
                 alarm_triggered = True
             if t > last_switch_time + door_open_overtime_delay and not alarm_overtime:
                 LOGGER.info(f'Switch was open for {door_open_overtime_delay} seconds - second alarm triggered')
-                threading.Thread(target=send_overtime_message, args=(task_config, slack_client)).start()
+                threading.Thread(target=send_overtime_message).start()
                 alarm_overtime = True
         elif not switch_state and last_switch_state:
             t = time.time()
@@ -115,11 +116,13 @@ def loop_thread(task_config: dict, slack_client: WebClient):
     LOGGER.info('Loop thread shutting down')
 
 
-def switch_monitor_thread(task_config: dict):
+def switch_monitor_thread():
     global switch_state
     LOGGER.debug('Entered switch input thread')
+    switch_pin = task_config['switch_pin']
+    GPIO.setup(switch_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     while not shutdown_signal:
-        val = GPIO.input(task_config['switch_pin'])
+        val = GPIO.input(switch_pin)
         LOGGER.info(f'Pin value: {val}')
         time.sleep(1)
 
@@ -144,6 +147,10 @@ def shutdown():
     global shutdown_signal
     LOGGER.warning('Shutting down')
     shutdown_signal = True
+    if not DEV_ENV and not task_config['disable_gpio']:
+        GPIO.cleanup()
+        LOGGER.info('GPIO cleanup complete')
+
     LOGGER.info('Waiting for threads')
     for t in main_threads:
         t.join()
@@ -166,7 +173,7 @@ signal.signal(signal.SIGALRM, handle_signal)
 signal.signal(signal.SIGTERM, handle_signal)
 
 
-def get_channel_id(channel_name: str, slack_client: WebClient):
+def get_channel_id(channel_name: str):
     resp = slack_client.conversations_list(types='public_channel,private_channel')
 
     for channel in resp['channels']:
@@ -176,7 +183,7 @@ def get_channel_id(channel_name: str, slack_client: WebClient):
     raise Exception(f'Could not find slack channel named {channel_name}')
 
 
-def validate_config(task_config: dict):
+def validate_config():
     keys_to_validate = ['slack_channel', 'slack_api_token']
     missing_keys = []
 
@@ -226,7 +233,9 @@ def validate_config(task_config: dict):
         raise Exception(f'Invalid timestamp format: {task_config["timestamp_format"]}')
 
 
-def configure() -> Tuple[dict, WebClient]:
+def configure():
+    global task_config
+    global slack_client
     task_config = DEFAULT_CONFIG
 
     with open(CONFIG_FILENAME, 'r') as conf_file:
@@ -236,20 +245,19 @@ def configure() -> Tuple[dict, WebClient]:
         task_config.update(config)
 
     LOGGER.info(f'Got config: {task_config}')
-    validate_config(task_config)
+    validate_config()
+    task_config['slack_channel_id'] = get_channel_id(task_config['slack_channel'])
     LOGGER.info(f'Validated config: {task_config}')
 
     slack_client = WebClient(token=task_config['slack_api_token'])
-    task_config['slack_channel_id'] = get_channel_id(task_config['slack_channel'], slack_client)
-    return task_config, slack_client
 
 
 def execute():
     try:
-        task_config, slack_client = configure()
+        configure()
 
         main_threads.append(
-            threading.Thread(name='alarm_handler', target=loop_thread, args=(task_config, slack_client)))
+            threading.Thread(name='alarm_handler', target=loop_thread))
 
         if DEV_ENV or task_config['dev_mode']:
             main_threads.append(threading.Thread(name='input_sim_thread', target=input_thread))
@@ -257,7 +265,8 @@ def execute():
             LOGGER.debug('DEV_ENV is false and dev_mode is false; did not start keyboard input thread')
 
         if not DEV_ENV and not task_config['disable_gpio']:
-            main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread, args=(task_config,)))
+            main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread))
+            GPIO.setmode(GPIO.BCM)
         else:
             LOGGER.debug('DEV_ENV is true or disable_gpio is true; did not start switch input thread')
 
