@@ -20,4 +20,11 @@ door_overtime_message: "Door has been opened for $DURATION seconds as of $TIMEST
 # Pin config - specify the pins in BCM mode (i.e., using the GPIO number, not the physical pin number).
 # Example: physical pin #3 is GPIO pin #2, so use "2".
 # https://raspberrypi.stackexchange.com/questions/12966/what-is-the-difference-between-board-and-bcm-for-gpio-pin-numbering
-#
+switch_pin: 2
+light_pin_r: 14
+light_pin_g: 15
+light_pin_b: 18
+
+# Set dev_mode to true to allow using the keyboard to simulate switch trigger events
+# This is always true if the program is not running on a pi.
+dev_mode: true

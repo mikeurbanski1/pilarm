@@ -27,6 +27,7 @@ LOGGER.addHandler(console_handler)
 
 try:
     import RPi.GPIO as GPIO
+
     LOGGER.info('Imported RPi package')
     DEV_ENV = False
 except ModuleNotFoundError:
@@ -43,12 +44,18 @@ DEFAULT_CONFIG = {
     'door_open_overtime_delay': '8',
     'door_open_message': 'Door opened at $TIMESTAMP',
     'door_overtime_message': 'Door has been opened for $DURATION seconds as of $TIMESTAMP',
-    'slack_verbosity': 3
+    # 'slack_verbosity': 3,
+    'switch_pin': 2,
+    'light_pin_r': 14,
+    'light_pin_g': 15,
+    'light_pin_b': 18,
+    'dev_mode': False
 }
 
 CONFIG_FILENAME = 'conf.yaml'
 
 main_threads: List[threading.Thread] = []
+
 
 def send_door_open_message(task_config: dict, slack_client: WebClient):
     time_str = datetime.datetime.now().strftime(task_config['timestamp_format'])
@@ -59,7 +66,8 @@ def send_door_open_message(task_config: dict, slack_client: WebClient):
 
 def send_overtime_message(task_config: dict, slack_client: WebClient):
     time_str = datetime.datetime.now().strftime(task_config['timestamp_format'])
-    message = task_config['door_overtime_message'].replace('$TIMESTAMP', time_str).replace('$DURATION', str(task_config['door_open_overtime_delay']))
+    message = task_config['door_overtime_message'].replace('$TIMESTAMP', time_str).replace('$DURATION', str(
+        task_config['door_open_overtime_delay']))
     resp = slack_client.chat_postMessage(channel=task_config['slack_channel_id'], text=message)
     LOGGER.info(f'Sent message: {resp}')
 
@@ -103,8 +111,13 @@ def loop_thread(task_config: dict, slack_client: WebClient):
     LOGGER.info('Loop thread shutting down')
 
 
-# def switch_monitor_thread():
-#     global switch_state:
+def switch_monitor_thread(task_config: dict):
+    global switch_state
+
+    while not shutdown_signal:
+        val = GPIO.input(task_config['switch_pin'])
+        LOGGER.info(f'Pin value: {val}')
+        time.sleep(1)
 
 
 def input_thread():
@@ -131,6 +144,7 @@ def shutdown():
         t.join()
     LOGGER.info('All threads stopped')
 
+
 signal.signal(signal.SIGHUP, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 signal.signal(signal.SIGQUIT, shutdown)
@@ -139,13 +153,14 @@ signal.signal(signal.SIGTRAP, shutdown)
 signal.signal(signal.SIGABRT, shutdown)
 signal.signal(signal.SIGBUS, shutdown)
 signal.signal(signal.SIGFPE, shutdown)
-#signal.signal(signal.SIGKILL, receiveSignal)
+# signal.signal(signal.SIGKILL, receiveSignal)
 signal.signal(signal.SIGUSR1, shutdown)
 signal.signal(signal.SIGSEGV, shutdown)
 signal.signal(signal.SIGUSR2, shutdown)
 signal.signal(signal.SIGPIPE, shutdown)
 signal.signal(signal.SIGALRM, shutdown)
 signal.signal(signal.SIGTERM, shutdown)
+
 
 # def signal_handler(sig=None, frame=None):
 #     global stop
@@ -176,7 +191,14 @@ def validate_config(task_config: dict):
     if missing_keys:
         raise Exception(f'Configuration keys missing: {", ".join(missing_keys)}')
 
-    int_keys = ['door_opened_delay', 'door_open_overtime_delay']
+    int_keys = [
+        'door_opened_delay',
+        'door_open_overtime_delay',
+        'switch_pin',
+        'light_pin_r',
+        'light_pin_g',
+        'light_pin_b'
+    ]
     not_ints = []
     for key in int_keys:
         try:
@@ -187,6 +209,16 @@ def validate_config(task_config: dict):
 
     if not_ints:
         raise Exception(f'Expected int values: {", ".join(not_ints)}')
+
+    bool_keys = [
+        'dev_mode'
+    ]
+
+    for key in bool_keys:
+        s = str(task_config[key])
+        if s.lower() not in ['true', 'false']:
+            raise ValueError(f'Got value {s} for {key}; expected true or false')
+        task_config[key] = s.lower() == 'true'
 
     try:
         datetime.datetime.now().strftime(task_config['timestamp_format'])
@@ -215,11 +247,14 @@ def execute():
     try:
         task_config, slack_client = configure()
 
-        main_threads.append(threading.Thread(name='alarm_handler', target=loop_thread, args=(task_config, slack_client)))
-        # main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread))
+        main_threads.append(
+            threading.Thread(name='alarm_handler', target=loop_thread, args=(task_config, slack_client)))
 
-        if DEV_ENV:
+        if DEV_ENV or task_config['dev_mode']:
             main_threads.append(threading.Thread(name='input_sim_thread', target=input_thread))
+
+        if not DEV_ENV:
+            main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread, args=(task_config,)))
 
         for t in main_threads:
             t.start()
@@ -232,4 +267,3 @@ if __name__ == '__main__':
     LOGGER.info(f'Starting execution')
     execute()
     LOGGER.info(f'Initialization complete; main thread exited')
-
