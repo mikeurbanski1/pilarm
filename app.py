@@ -12,7 +12,8 @@ from slack import WebClient
 
 LOGGER: logging = logging.getLogger(__name__)
 
-LOGGER.setLevel(logging.DEBUG)
+DEFAULT_LOG_LEVEL = 'INFO'
+LOGGER.setLevel(logging._nameToLevel[DEFAULT_LOG_LEVEL])
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
 os.makedirs('logs', exist_ok=True)
@@ -50,7 +51,8 @@ DEFAULT_CONFIG = {
     'light_pin_g': 15,
     'light_pin_b': 18,
     'dev_mode': False,
-    'disable_gpio': False
+    'disable_gpio': False,
+    'log_level': 'INFO'
 }
 
 CONFIG_FILENAME = 'conf.yaml'
@@ -211,6 +213,12 @@ def validate_config(task_config: dict):
         if s.lower() not in ['true', 'false']:
             raise ValueError(f'Got value {s} for {key}; expected true or false')
         task_config[key] = s.lower() == 'true'
+
+    if 'log_level' in task_config:
+        level = task_config['log_level']
+        if level not in logging._nameToLevel:
+            raise ValueError(f'{level} is not a valid log level. Expected one of: {logging._nameToLevel.keys()}')
+        LOGGER.setLevel(logging._nameToLevel[level])
 
     try:
         datetime.datetime.now().strftime(task_config['timestamp_format'])
