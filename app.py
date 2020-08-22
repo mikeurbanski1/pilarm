@@ -56,8 +56,6 @@ DEFAULT_CONFIG = {
     'log_level': 'INFO'
 }
 
-CONFIG_FILENAME = 'conf.yaml'
-
 main_threads: List[threading.Thread] = []
 task_config: dict
 slack_client: WebClient
@@ -252,12 +250,12 @@ def validate_config():
         raise Exception(f'Invalid timestamp format: {task_config["timestamp_format"]}')
 
 
-def configure():
+def configure(conf_filename):
     global task_config
     global slack_client
     task_config = DEFAULT_CONFIG
 
-    with open(CONFIG_FILENAME, 'r') as conf_file:
+    with open(conf_filename, 'r') as conf_file:
         config = yaml.load(conf_file, Loader=yaml.FullLoader)
 
     if config:
@@ -291,8 +289,13 @@ def setup_gpio():
 def execute():
     global gpio_enabled
 
+    if len(sys.argv) != 2:
+        print(f'Invalid startup command: {sys.argv}', file=sys.stderr)
+        print('Expected one arg, a path to the config file. Exiting.')
+        exit(1)
+
     try:
-        configure()
+        configure(sys.argv[1])
 
         main_threads.append(
             threading.Thread(name='alarm_handler', target=loop_thread))
