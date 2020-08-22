@@ -81,6 +81,7 @@ def send_overtime_message():
 def set_led(r: bool = False, g: bool = False, b: bool = False):
     if not gpio_enabled:
         return
+    LOGGER.debug(f'Setting LED to RGB: [{r}, {g}, {b}]')
     rgb_pwm['r'].ChangeDutyCycle(0 if r else 100)
     rgb_pwm['g'].ChangeDutyCycle(0 if g else 100)
     rgb_pwm['b'].ChangeDutyCycle(0 if b else 100)
@@ -289,7 +290,7 @@ def setup_gpio():
 
 def execute():
     global gpio_enabled
-    
+
     try:
         configure()
 
