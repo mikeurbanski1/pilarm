@@ -49,7 +49,8 @@ DEFAULT_CONFIG = {
     'light_pin_r': 14,
     'light_pin_g': 15,
     'light_pin_b': 18,
-    'dev_mode': False
+    'dev_mode': False,
+    'disable_gpio': False
 }
 
 CONFIG_FILENAME = 'conf.yaml'
@@ -210,9 +211,7 @@ def validate_config(task_config: dict):
     if not_ints:
         raise Exception(f'Expected int values: {", ".join(not_ints)}')
 
-    bool_keys = [
-        'dev_mode'
-    ]
+    bool_keys = ['dev_mode', 'disable_gpio']
 
     for key in bool_keys:
         s = str(task_config[key])
@@ -235,8 +234,9 @@ def configure() -> Tuple[dict, WebClient]:
     if config:
         task_config.update(config)
 
-    LOGGER.info(f'Using config: {task_config}')
+    LOGGER.info(f'Got config: {task_config}')
     validate_config(task_config)
+    LOGGER.info(f'Validated config: {task_config}')
 
     slack_client = WebClient(token=task_config['slack_api_token'])
     task_config['slack_channel_id'] = get_channel_id(task_config['slack_channel'], slack_client)
