@@ -74,6 +74,7 @@ def send_overtime_message(task_config: dict, slack_client: WebClient):
 
 
 def loop_thread(task_config: dict, slack_client: WebClient):
+    LOGGER.debug('Entered main loop thread')
     last_switch_time = 0
     last_switch_state = switch_state
     alarm_triggered = False
@@ -114,7 +115,7 @@ def loop_thread(task_config: dict, slack_client: WebClient):
 
 def switch_monitor_thread(task_config: dict):
     global switch_state
-
+    LOGGER.debug('Entered switch input thread')
     while not shutdown_signal:
         val = GPIO.input(task_config['switch_pin'])
         LOGGER.info(f'Pin value: {val}')
@@ -123,6 +124,7 @@ def switch_monitor_thread(task_config: dict):
 
 def input_thread():
     global switch_state
+    LOGGER.debug('Entered keyboard input thread')
     while not shutdown_signal:
         s = sys.stdin.readline().rstrip()
         if s == 'exit':
@@ -162,14 +164,6 @@ signal.signal(signal.SIGALRM, handle_signal)
 signal.signal(signal.SIGTERM, handle_signal)
 
 
-# def signal_handler(sig=None, frame=None):
-#     global stop
-#     stop = True
-#     t1.join()
-#     t2.join()
-
-
-# signal.signal(signal.SIGINT, signal_handler)
 def get_channel_id(channel_name: str, slack_client: WebClient):
     resp = slack_client.conversations_list(types='public_channel,private_channel')
 
@@ -251,9 +245,13 @@ def execute():
 
         if DEV_ENV or task_config['dev_mode']:
             main_threads.append(threading.Thread(name='input_sim_thread', target=input_thread))
+        else:
+            LOGGER.debug('DEV_ENV is false and dev_mode is false; did not start keyboard input thread')
 
-        if not DEV_ENV:
+        if not DEV_ENV and not task_config['disable_gpio']:
             main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread, args=(task_config,)))
+        else:
+            LOGGER.debug('DEV_ENV is true or disable_gpio is true; did not start switch input thread')
 
         for t in main_threads:
             t.start()
