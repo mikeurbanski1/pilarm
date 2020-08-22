@@ -12,4 +12,4 @@ install = "*"
 fakerpi = {git = "https://github.com/sn4k3/FakeRPi"}
 
 [requires]
-python_version = "3.8"
+python_version = "3.7.3"

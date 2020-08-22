@@ -103,8 +103,8 @@ def loop_thread(task_config: dict, slack_client: WebClient):
     LOGGER.info('Loop thread shutting down')
 
 
-def switch_monitor_thread():
-    global switch_state:
+# def switch_monitor_thread():
+#     global switch_state:
 
 
 def input_thread():
@@ -216,7 +216,7 @@ def execute():
         task_config, slack_client = configure()
 
         main_threads.append(threading.Thread(name='alarm_handler', target=loop_thread, args=(task_config, slack_client)))
-        main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread))
+        # main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread))
 
         if DEV_ENV:
             main_threads.append(threading.Thread(name='input_sim_thread', target=input_thread))
