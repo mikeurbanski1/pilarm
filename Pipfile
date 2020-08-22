@@ -8,6 +8,8 @@ verify_ssl = true
 [packages]
 pyyaml = "*"
 slackclient = "*"
+install = "*"
+fakerpi = {git = "https://github.com/sn4k3/FakeRPi"}
 
 [requires]
 python_version = "3.8"

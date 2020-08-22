@@ -2,3 +2,4 @@
 venv
 .slack_token
 conf.yaml
+logs

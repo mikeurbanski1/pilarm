@@ -8,7 +8,7 @@ slack_channel: some_channel
 # See https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior for timestamp formatting syntax
 timestamp_format: "%I:%M:%S %p on %Y/%m/%d",
 
-# Time is in seconds for both these values.
+# Time is in seconds for both these values. Must be integers (e.g., "3", not "3 seconds")
 door_opened_delay: 3,
 door_open_overtime_delay: 8,
 
@@ -16,3 +16,8 @@ door_open_overtime_delay: 8,
 # door_overtime_message accepts a $DURATION placeholder, which will be replaced with the value for how long the door has been open.
 door_open_message: "Door opened at $TIMESTAMP",
 door_overtime_message: "Door has been opened for $DURATION seconds as of $TIMESTAMP"
+
+# Pin config - specify the pins in BCM mode (i.e., using the GPIO number, not the physical pin number).
+# Example: physical pin #3 is GPIO pin #2, so use "2".
+# https://raspberrypi.stackexchange.com/questions/12966/what-is-the-difference-between-board-and-bcm-for-gpio-pin-numbering
+#
