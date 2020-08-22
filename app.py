@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 import datetime
-from typing import Tuple, List
+from typing import Tuple, List, Optional, Dict
 
 import yaml
 import logging.handlers
@@ -37,6 +37,8 @@ except ModuleNotFoundError:
 
 shutdown_signal = False
 switch_state = False
+rgb_pwm: Optional[Dict[str, GPIO.PWM]] = None
+gpio_enabled = False
 
 DEFAULT_CONFIG = {
     'timestamp_format': '%I:%M:%S %p on %Y/%m/%d',
@@ -76,6 +78,18 @@ def send_overtime_message():
     LOGGER.info(f'Sent message: {resp}')
 
 
+def set_led(r: bool = False, g: bool = False, b: bool = False):
+    if not gpio_enabled:
+        return
+    rgb_pwm['r'].ChangeDutyCycle(0 if r else 100)
+    rgb_pwm['g'].ChangeDutyCycle(0 if g else 100)
+    rgb_pwm['b'].ChangeDutyCycle(0 if b else 100)
+
+
+def turn_off_led():
+    set_led(r=False, g=False, b=False)
+
+
 def loop_thread():
     LOGGER.debug('Entered main loop thread')
     last_switch_time = 0
@@ -89,15 +103,18 @@ def loop_thread():
         if switch_state and not last_switch_state:
             t = time.time()
             LOGGER.info(f'Switch triggered at {t}')
+            set_led(g=True)
             last_switch_time = t
         elif switch_state and last_switch_state:
             t = time.time()
             if t > last_switch_time + door_opened_delay and not alarm_triggered:
                 LOGGER.info(f'Switch was open for {door_opened_delay} seconds - alarm triggered')
+                set_led(r=True, g=True)
                 threading.Thread(target=send_door_open_message).start()
                 alarm_triggered = True
             if t > last_switch_time + door_open_overtime_delay and not alarm_overtime:
                 LOGGER.info(f'Switch was open for {door_open_overtime_delay} seconds - second alarm triggered')
+                set_led(r=True)
                 threading.Thread(target=send_overtime_message).start()
                 alarm_overtime = True
         elif not switch_state and last_switch_state:
@@ -108,6 +125,7 @@ def loop_thread():
                 alarm_overtime = False
             else:
                 LOGGER.info(f'Switch was reset within {door_opened_delay} sec ({t - last_switch_time})')
+            turn_off_led()
 
         last_switch_state = switch_state
 
@@ -120,7 +138,6 @@ def switch_monitor_thread():
     global switch_state
     LOGGER.debug('Entered switch input thread')
     switch_pin = task_config['switch_pin']
-    GPIO.setup(switch_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     while not shutdown_signal:
         val = GPIO.input(switch_pin)
         switch_state = val == 0
@@ -252,6 +269,24 @@ def configure():
     LOGGER.info(f'Validated config: {task_config}')
 
 
+def setup_gpio():
+    global rgb_pwm
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(task_config['switch_pin'], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    rgb_pwm = {}
+    GPIO.setup(task_config['light_pin_r'], GPIO.OUT)
+    GPIO.setup(task_config['light_pin_g'], GPIO.OUT)
+    GPIO.setup(task_config['light_pin_b'], GPIO.OUT)
+    rgb_pwm['r'] = GPIO.PWM(task_config['light_pin_r'], 100)
+    rgb_pwm['g'] = GPIO.PWM(task_config['light_pin_g'], 100)
+    rgb_pwm['b'] = GPIO.PWM(task_config['light_pin_b'], 100)
+
+    for p in rgb_pwm.values():
+        p.ChangeDutyCycle(100)
+
+    LOGGER.info('Finished setting up GPIO')
+
+
 def execute():
     try:
         configure()
@@ -266,9 +301,12 @@ def execute():
 
         if not DEV_ENV and not task_config['disable_gpio']:
             main_threads.append(threading.Thread(name='switch_checker', target=switch_monitor_thread))
-            GPIO.setmode(GPIO.BCM)
         else:
             LOGGER.debug('DEV_ENV is true or disable_gpio is true; did not start switch input thread')
+
+        if not DEV_ENV and not task_config['disable_gpio']:
+            gpio_enabled = True
+            setup_gpio()
 
         for t in main_threads:
             t.start()
