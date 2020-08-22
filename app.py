@@ -123,7 +123,7 @@ def switch_monitor_thread():
     GPIO.setup(switch_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     while not shutdown_signal:
         val = GPIO.input(switch_pin)
-        LOGGER.info(f'Pin value: {val}')
+        switch_state = val == 0
         time.sleep(1)
     LOGGER.info('Switch input thread shutting down')
 
