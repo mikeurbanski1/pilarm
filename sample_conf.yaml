@@ -36,3 +36,5 @@ disable_gpio: false
 # Set the log level to one of: CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG
 # A level of CRITICAL will all but disable logging after initial startup.
 log_level: INFO
+
+log_dir: "/home/pi/pilarm/logs"

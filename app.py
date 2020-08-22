@@ -16,12 +16,6 @@ DEFAULT_LOG_LEVEL = 'INFO'
 LOGGER.setLevel(logging._nameToLevel[DEFAULT_LOG_LEVEL])
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-os.makedirs('logs', exist_ok=True)
-# log_file_size = 1 * 1024 * 1024  # 1 MB
-# file_handler = logging.handlers.RotatingFileHandler('logs/pilarm.log', maxBytes=log_file_size, backupCount=10)
-# file_handler.setFormatter(formatter)
-# LOGGER.addHandler(file_handler)
-
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 LOGGER.addHandler(console_handler)
@@ -53,7 +47,8 @@ DEFAULT_CONFIG = {
     'light_pin_b': 18,
     'dev_mode': False,
     'disable_gpio': False,
-    'log_level': 'INFO'
+    'log_level': 'INFO',
+    'log_dir': '/home/pi/pilarm/logs'
 }
 
 main_threads: List[threading.Thread] = []
@@ -265,6 +260,13 @@ def configure(conf_filename):
     validate_config()
     slack_client = WebClient(token=task_config['slack_api_token'])
     task_config['slack_channel_id'] = get_channel_id(task_config['slack_channel'])
+
+    os.makedirs(task_config['log_dir'], exist_ok=True)
+    log_file_size = 1 * 1024 * 1024  # 1 MB
+    file_handler = logging.handlers.RotatingFileHandler(os.path.join(task_config['log_dir'], 'pilarm.log'), maxBytes=log_file_size, backupCount=10)
+    file_handler.setFormatter(formatter)
+    LOGGER.addHandler(file_handler)
+
     LOGGER.info(f'Validated config: {task_config}')
 
 
