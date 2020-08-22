@@ -288,6 +288,8 @@ def setup_gpio():
 
 
 def execute():
+    global gpio_enabled
+    
     try:
         configure()
 
