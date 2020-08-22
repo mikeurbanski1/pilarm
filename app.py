@@ -283,7 +283,7 @@ def setup_gpio():
     rgb_pwm['b'] = GPIO.PWM(task_config['light_pin_b'], 100)
 
     for p in rgb_pwm.values():
-        p.ChangeDutyCycle(100)
+        p.start(100)
 
     LOGGER.info('Finished setting up GPIO')
 
